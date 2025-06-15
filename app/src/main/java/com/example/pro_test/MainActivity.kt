@@ -2,6 +2,9 @@ package com.example.pro_test
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
+import android.util.Log
+import androidx.compose.runtime.LaunchedEffect
+
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.DrawableRes
@@ -119,6 +122,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
+
+import com.example.pro_test.data.network.RetrofitInstance
+import com.example.pro_test.data.network.LoginRequest
+import com.example.pro_test.data.network.RegisterRequest
 
 // Entry point of the Android application using Jetpack Compose
 class MainActivity : ComponentActivity() {
@@ -326,166 +337,20 @@ fun WelcomeScreen(onGetStartedClick: () -> Unit) {
 
 @Composable
 fun ModernLoginScreen(
-    onLoginSuccess: () -> Unit,       // Callback triggered when login is successful
-    onNavigateToSignUp: () -> Unit,   // Callback to navigate to the sign-up screen
-    onForgotPassword: () -> Unit      // Callback for forgot password action
+    onLoginSuccess: () -> Unit,
+    onNavigateToSignUp: () -> Unit,
+    onForgotPassword: () -> Unit
 ) {
-    // State variables for email and password inputs
+    // States
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) } // Toggle for password visibility
-
-    // UI colors and gradient
-    val primaryColor = Color(0xFF1B2A58)     // Main theme color (dark blue)
-    val signUpAccent = Color(0xFFC49F50)     // Accent color for sign-up (golden)
-    val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFFE3F2FD), Color.White) // Light blue to white background
-    )
-
-    // Outer container for the screen layout
-    Box(
-        modifier = Modifier
-            .fillMaxSize()                  // Fills the entire screen
-            .background(backgroundGradient) // Applies background gradient
-            .padding(horizontal = 24.dp)    // Horizontal padding for content
-    ) {
-        // Vertical layout for the login content
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,          // Centers content vertically
-            horizontalAlignment = Alignment.CenterHorizontally // Centers content horizontally
-        ) {
-            // Heading text
-            Text(
-                text = "Welcome Back",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = primaryColor
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Subheading text
-            Text("Your professional hub starts here", fontSize = 14.sp, color = Color.Gray)
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Email input field
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it }, // Update email state
-                label = { Text("Email") },
-                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = primaryColor) },
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Password input field with visibility toggle
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it }, // Update password state
-                label = { Text("Password") },
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = primaryColor) },
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = null,
-                            tint = primaryColor
-                        )
-                    }
-                },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Forgot password text aligned to the right
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(onClick = onForgotPassword) {
-                    Text("Forgot password?", color = signUpAccent)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Login button
-            Button(
-                onClick = {
-                    if (email.isNotBlank() && password.isNotBlank()) {
-                        onLoginSuccess() // Trigger success callback if fields are not empty
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
-            ) {
-                Text("Login", color = Color.White, fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Divider with "OR" text
-            Text("OR", color = Color.Gray)
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Sign-up button (outlined)
-            OutlinedButton(
-                onClick = onNavigateToSignUp, // Navigate to sign-up screen
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.5.dp, signUpAccent)
-            ) {
-                Text("Create New Account", fontWeight = FontWeight.Medium)
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Legal disclaimer
-            Text(
-                text = "By continuing, you agree to our Terms and Privacy Policy",
-                fontSize = 12.sp,
-                color = Color.Gray,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
-        }
-    }
-}
-
-
-
-
-//------------------------------------------- Sign Up Screen ---------------------------
-
-
-
-
-@Composable
-fun SignUpScreen(
-    onSignUpSuccess: () -> Unit,
-    onNavigateBack: () -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var showPasswordError by remember { mutableStateOf(false) }
+    var loginError by remember { mutableStateOf<String?>(null) }
 
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    // UI Colors
     val primaryColor = Color(0xFF1B2A58)
     val signUpAccent = Color(0xFFC49F50)
     val backgroundGradient = Brush.verticalGradient(
@@ -503,21 +368,177 @@ fun SignUpScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Create Account",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = primaryColor
+            Text("Welcome Back", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = primaryColor)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Your professional hub starts here", fontSize = 14.sp, color = Color.Gray)
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Email Input
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email") },
+                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = primaryColor) },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Password Input
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = primaryColor) },
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(
+                            if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = null,
+                            tint = primaryColor
+                        )
+                    }
+                },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = "Join the hub and start your journey",
-                fontSize = 14.sp,
-                color = Color.Gray
-            )
+            // Forgot Password
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onForgotPassword) {
+                    Text("Forgot password?", color = signUpAccent)
+                }
+            }
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Login Button
+            Button(
+                onClick = {
+                    if (email.isNotBlank() && password.isNotBlank()) {
+                        coroutineScope.launch {
+                            try {
+                                val response = RetrofitInstance.authApi.login(
+                                    LoginRequest(email = email, password = password)
+                                )
+                                if (response.isSuccessful) {
+                                    val loginData = response.body()
+                                    val token = loginData?.token ?: ""
+
+                                    // Save token
+                                    context.getSharedPreferences("APP_PREFS", Context.MODE_PRIVATE)
+                                        .edit()
+                                        .putString("JWT_TOKEN", token)
+                                        .apply()
+
+                                    onLoginSuccess()
+                                } else {
+                                    loginError = "Login failed: ${response.code()}"
+                                }
+                            } catch (e: Exception) {
+                                loginError = "Erreur réseau: ${e.localizedMessage}"
+                            }
+                        }
+                    } else {
+                        loginError = "Tous les champs sont requis"
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+            ) {
+                Text("Login", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+
+            // Error message
+            loginError?.let {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = it,
+                    color = Color.Red,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("OR", color = Color.Gray)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Sign-up
+            OutlinedButton(
+                onClick = onNavigateToSignUp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.5.dp, signUpAccent)
+            ) {
+                Text("Create New Account", fontWeight = FontWeight.Medium)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "By continuing, you agree to our Terms and Privacy Policy",
+                fontSize = 12.sp,
+                color = Color.Gray,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+        }
+    }
+}
+
+
+//------------------------------------------- Sign Up Screen ---------------------------
+
+@Composable
+fun SignUpScreen(
+    onSignUpSuccess: () -> Unit,
+    onNavigateBack: () -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var showPasswordError by remember { mutableStateOf(false) }
+    var registerError by remember { mutableStateOf<String?>(null) }
+
+    val primaryColor = Color(0xFF1B2A58)
+    val signUpAccent = Color(0xFFC49F50)
+    val backgroundGradient = Brush.verticalGradient(
+        colors = listOf(Color(0xFFE3F2FD), Color.White)
+    )
+
+    val coroutineScope = rememberCoroutineScope()
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundGradient)
+            .padding(horizontal = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Create Account", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = primaryColor)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Join the hub and start your journey", fontSize = 14.sp, color = Color.Gray)
             Spacer(modifier = Modifier.height(32.dp))
 
             // Full Name
@@ -525,16 +546,10 @@ fun SignUpScreen(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("Full Name") },
-                leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = primaryColor)
-                },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = primaryColor) },
+                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = primaryColor,
-                    cursorColor = primaryColor
-                ),
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(16.dp)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -544,16 +559,10 @@ fun SignUpScreen(
                 value = email,
                 onValueChange = { email = it },
                 label = { Text("Email") },
-                leadingIcon = {
-                    Icon(Icons.Default.Email, contentDescription = null, tint = primaryColor)
-                },
+                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = primaryColor) },
+                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = primaryColor,
-                    cursorColor = primaryColor
-                ),
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(16.dp)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -563,9 +572,7 @@ fun SignUpScreen(
                 value = password,
                 onValueChange = { password = it },
                 label = { Text("Password") },
-                leadingIcon = {
-                    Icon(Icons.Default.Lock, contentDescription = null, tint = primaryColor)
-                },
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = primaryColor) },
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
@@ -576,13 +583,9 @@ fun SignUpScreen(
                     }
                 },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = primaryColor,
-                    cursorColor = primaryColor
-                ),
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(16.dp)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -592,39 +595,52 @@ fun SignUpScreen(
                 value = confirmPassword,
                 onValueChange = { confirmPassword = it },
                 label = { Text("Confirm Password") },
-                leadingIcon = {
-                    Icon(Icons.Default.Lock, contentDescription = null, tint = primaryColor)
-                },
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = primaryColor) },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = primaryColor,
-                    cursorColor = primaryColor
-                ),
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(16.dp)
             )
 
             if (showPasswordError) {
-                Text(
-                    text = "Passwords do not match",
-                    color = Color.Red,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+                Text("Passwords do not match", color = Color.Red)
+            }
+
+            registerError?.let {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(it, color = Color.Red)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Create Account Button
+            // Register Button
             Button(
                 onClick = {
                     if (name.isNotBlank() && email.isNotBlank() && password.isNotBlank() && confirmPassword.isNotBlank()) {
                         if (password == confirmPassword) {
                             showPasswordError = false
-                            onSignUpSuccess()
+                            coroutineScope.launch {
+                                try {
+                                    val response = RetrofitInstance.authApi.register(
+                                        RegisterRequest(name = name, email = email, password = password)
+                                    )
+                                    if (response.isSuccessful) {
+                                        val msg = response.body()?.message ?: "Inscription réussie"
+                                        Log.d("REGISTER_SUCCESS", msg)
+                                        onSignUpSuccess()
+                                    } else {
+                                        val errorMsg = response.errorBody()?.string()
+                                        registerError = "Erreur ${response.code()}:\n$errorMsg"
+                                    }
+                                } catch (e: Exception) {
+                                    registerError = "Erreur: ${e.localizedMessage}"
+                                }
+                            }
                         } else {
                             showPasswordError = true
                         }
+                    } else {
+                        registerError = "Tous les champs sont requis"
                     }
                 },
                 modifier = Modifier
@@ -644,9 +660,6 @@ fun SignUpScreen(
         }
     }
 }
-
-
-
 
 // ----------------------------------------- Home Screen -----------------------------------
 
@@ -1050,7 +1063,26 @@ fun EventsRowSection(
 @Composable
 fun TopSection(onLogout: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }         // Dropdown menu visibility
-    var selectedUser by remember { mutableStateOf("Ouiam") }   // Currently selected user
+    var userName by remember { mutableStateOf<String?>(null) }   // Dynamic user name
+
+    val context = LocalContext.current
+    val jwt = context.getSharedPreferences("APP_PREFS", Context.MODE_PRIVATE)
+        .getString("JWT_TOKEN", null)
+
+    LaunchedEffect(Unit) {
+        if (jwt != null) {
+            try {
+                val response = RetrofitInstance.authApi.getCurrentUser("Bearer $jwt")
+                if (response.isSuccessful) {
+                    userName = response.body()?.name
+                } else {
+                    Log.e("TopSection", "Erreur /me: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                Log.e("TopSection", "Exception: ${e.localizedMessage}")
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -1065,44 +1097,33 @@ fun TopSection(onLogout: () -> Unit) {
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Row with user name, dropdown icon, and account switch/logout menu
+        // Row with user name, dropdown icon, and logout menu
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.clickable { expanded = true } // Expand dropdown on click
         ) {
-            Text(selectedUser, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text(
+                text = userName ?: "Loading...",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp
+            )
 
             Icon(
                 imageVector = Icons.Default.ArrowDropDown,
-                contentDescription = "Change account",
+                contentDescription = "Account menu",
                 tint = Color.White
             )
 
-            // Dropdown menu for selecting user or logging out
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
                 DropdownMenuItem(
-                    text = { Text("Ouiam") },
-                    onClick = {
-                        selectedUser = "Ouiam"
-                        expanded = false
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("Claire") },
-                    onClick = {
-                        selectedUser = "Claire"
-                        expanded = false
-                    }
-                )
-                Divider()
-                DropdownMenuItem(
                     text = { Text("Logout") },
                     onClick = {
                         expanded = false
-                        onLogout() // Trigger logout
+                        onLogout()
                     }
                 )
             }
