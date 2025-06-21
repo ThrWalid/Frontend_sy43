@@ -2269,6 +2269,7 @@ data class TaskData(
 
 
 //------------------------------ TASK SCREEN -----------------------------
+//------------------------------ TASK SCREEN -----------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -2279,16 +2280,16 @@ fun TasksScreen(
     onNavigateToGroups: () -> Unit,
     onNavigateToSchedule: () -> Unit
 ) {
-    // ─── Liste initiale avec le paramètre `members` fourni ───
+    // --- Tasks state: a mutable list of TaskData ---
     var tasks by remember {
         mutableStateOf(
             listOf(
                 TaskData(
-                    title = "Design 2 App Screens",
-                    subtitle = "Need to design for citter",
-                    date = "Mon, 10 July 2025",
+                    title = "Design 2 App Screens",                   // Task title
+                    subtitle = "Need to design for citter",         // Brief description
+                    date = "Mon, 10 July 2025",                      // Due date
                     members = listOf(R.drawable.person4, R.drawable.person3, R.drawable.person7),
-                    done = true
+                    done = true                                       // Completion status
                 ),
                 TaskData(
                     title = "Design 1 Website",
@@ -2301,32 +2302,38 @@ fun TasksScreen(
                     title = "Data-Base",
                     subtitle = "Need to design for citter",
                     date = "Sat, 14 July 2026",
-                    members = emptyList(),  // pas d’avatars ici
+                    members = emptyList(),                            // No assigned members
                     done = false
                 )
             )
         )
     }
 
-    // ─── États de recherche ───
-    var searchMode by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
+    // --- States for search and dialog management ---
+    var searchMode by remember { mutableStateOf(false) }      // Toggle search mode
+    var searchQuery by remember { mutableStateOf("") }       // Search text
+    var showDialog by remember { mutableStateOf(false) }       // Show add dialog
+    var newTaskTitle by remember { mutableStateOf("") }       // New task title input
+    var newTaskSubtitle by remember { mutableStateOf("") }    // New task subtitle input
+    var newTaskDate by remember { mutableStateOf("") }        // New task date input
+    var selectedTaskIndex by remember { mutableStateOf<Int?>(null) } // Index of selected task for editing
+    var editTitle by remember { mutableStateOf("") }          // Edited title state
+    var editSubtitle by remember { mutableStateOf("") }       // Edited subtitle state
+    var editDate by remember { mutableStateOf("") }           // Edited date state
 
+    // --- Filter tasks based on search query ---
     val filteredTasks = remember(searchQuery, tasks) {
         if (searchQuery.isBlank()) tasks
         else tasks.filter { it.title.contains(searchQuery, ignoreCase = true) }
     }
 
+    // Provide screen structure: top bar, bottom navigation, floating action button
     Scaffold(
         topBar = {
             TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
-                    }
-                },
                 title = {
                     if (searchMode) {
+                        // Search input when in search mode
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
@@ -2341,29 +2348,48 @@ fun TasksScreen(
                             )
                         )
                     } else {
-                        Text("Tasks", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        // Title display when not searching
+                        Text(
+                            "Tasks",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 },
                 actions = {
                     if (searchMode) {
+                        // Button to exit search mode
                         IconButton(onClick = {
                             searchMode = false
                             searchQuery = ""
                         }) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color.White
+                            )
                         }
                     } else {
+                        // Button to enter search mode
                         IconButton(onClick = { searchMode = true }) {
-                            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = Color.White
+                            )
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1B2A58))
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF1B2A58)
+                )
             )
         },
         floatingActionButton = {
+            // Button to add a new task
             FloatingActionButton(
-                onClick = { /* Add task */ },
+                onClick = { showDialog = true },
                 containerColor = Color(0xFF1B2A58),
                 contentColor = Color.White
             ) {
@@ -2371,6 +2397,7 @@ fun TasksScreen(
             }
         },
         bottomBar = {
+            // Bottom navigation bar
             NavigationBar(containerColor = Color.White) {
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Group, contentDescription = "Groups") },
@@ -2393,7 +2420,7 @@ fun TasksScreen(
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.CheckCircle, contentDescription = "Tasks") },
                     label = { Text("Tasks") },
-                    selected = true,
+                    selected = true,                                  // Current tab
                     onClick = {}
                 )
                 NavigationBarItem(
@@ -2405,46 +2432,209 @@ fun TasksScreen(
             }
         }
     ) { innerPadding ->
-        LazyColumn(
-            contentPadding = PaddingValues(
-                top = innerPadding.calculateTopPadding() + 16.dp,
-                bottom = innerPadding.calculateBottomPadding() + 80.dp,
-                start = 16.dp,
-                end = 16.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            itemsIndexed(filteredTasks) { index, task ->
-                TaskCard(
-                    task = task,
-                    onToggle = {
-                        tasks = tasks.toMutableList().also {
-                            it[index] = it[index].copy(done = !it[index].done)
+        Box(modifier = Modifier.fillMaxSize()) {
+            // LazyColumn to display task cards
+            LazyColumn(
+                contentPadding = PaddingValues(
+                    top = innerPadding.calculateTopPadding() + 16.dp,
+                    bottom = innerPadding.calculateBottomPadding() + 80.dp,
+                    start = 16.dp,
+                    end = 16.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                itemsIndexed(filteredTasks) { index, task ->
+                    TaskCard(
+                        task = task,
+                        onToggle = {
+                            // Toggle task completion status
+                            tasks = tasks.toMutableList().also {
+                                val idx = tasks.indexOf(task)
+                                if (idx != -1) it[idx] = it[idx].copy(done = !it[idx].done)
+                            }
+                        },
+                        modifier = Modifier.clickable {
+                            // Select task for editing
+                            val realIndex = tasks.indexOf(task)
+                            if (realIndex != -1) {
+                                selectedTaskIndex = realIndex
+                                editTitle = tasks[realIndex].title
+                                editSubtitle = tasks[realIndex].subtitle
+                                editDate = tasks[realIndex].date
+                            }
                         }
-                    }
+                    )
+                }
+            }
+
+            // --- Add Task Dialog ---
+            if (showDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDialog = false },
+                    title = { Text("Add a New Task") },
+                    text = {
+                        Column {
+                            OutlinedTextField(
+                                value = newTaskTitle,
+                                onValueChange = { newTaskTitle = it },
+                                label = { Text("Title") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = newTaskSubtitle,
+                                onValueChange = { newTaskSubtitle = it },
+                                label = { Text("Subtitle") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = newTaskDate,
+                                onValueChange = { newTaskDate = it },
+                                label = { Text("Date") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            if (newTaskTitle.isNotBlank()) {
+                                // Add new task to list
+                                tasks = tasks + TaskData(
+                                    title = newTaskTitle,
+                                    subtitle = newTaskSubtitle,
+                                    date = newTaskDate,
+                                    members = emptyList(),
+                                    done = false
+                                )
+                                // Reset input fields
+                                newTaskTitle = ""
+                                newTaskSubtitle = ""
+                                newTaskDate = ""
+                                showDialog = false
+                            }
+                        }) {
+                            Text("Save")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDialog = false }) {
+                            Text("Cancel")
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+
+            // --- Edit Task Dialog ---
+            if (selectedTaskIndex != null) {
+                AlertDialog(
+                    onDismissRequest = { selectedTaskIndex = null },
+                    title = { Text("Edit Task") },
+                    text = {
+                        Column {
+                            OutlinedTextField(
+                                value = editTitle,
+                                onValueChange = { editTitle = it },
+                                label = { Text("Title") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = editSubtitle,
+                                onValueChange = { editSubtitle = it },
+                                label = { Text("Subtitle") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = editDate,
+                                onValueChange = { editDate = it },
+                                label = { Text("Date") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            val idx = selectedTaskIndex!!
+                            if (editTitle.isNotBlank()) {
+                                // Save task edits
+                                tasks = tasks.toMutableList().also {
+                                    it[idx] = it[idx].copy(
+                                        title = editTitle,
+                                        subtitle = editSubtitle,
+                                        date = editDate
+                                    )
+                                }
+                                selectedTaskIndex = null
+                            }
+                        }) {
+                            Text("Save")
+                        }
+                    },
+                    dismissButton = {
+                        Row {
+                            TextButton(
+                                onClick = {
+                                    // Delete selected task
+                                    val idx = selectedTaskIndex!!
+                                    tasks = tasks.toMutableList().also { it.removeAt(idx) }
+                                    selectedTaskIndex = null
+                                }
+                            ) {
+                                Text("Delete", color = Color.Red)
+                            }
+                            Spacer(Modifier.width(16.dp))
+                            TextButton(onClick = { selectedTaskIndex = null }) {
+                                Text("Cancel")
+                            }
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp)
                 )
             }
         }
     }
 }
 
+
+// Composable to display a task card
 @Composable
 fun TaskCard(
     task: TaskData,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .background(Color(0xFFF1F3FF), shape = RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // Column for title and subtitle
             Column(modifier = Modifier.weight(1f)) {
-                Text(task.title, fontWeight = FontWeight.Bold, color = Color(0xFF1B2A58), fontSize = 15.sp)
+                Text(
+                    task.title,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1B2A58),
+                    fontSize = 15.sp
+                )
                 Spacer(Modifier.height(4.dp))
-                Text(task.subtitle, fontSize = 13.sp, color = Color.Gray)
+                Text(
+                    task.subtitle,
+                    fontSize = 13.sp,
+                    color = Color.Gray
+                )
             }
+            // Button to toggle task completion
             IconButton(onClick = onToggle) {
                 if (task.done) {
                     Box(
@@ -2454,7 +2644,12 @@ fun TaskCard(
                             .background(Color(0xFF1B2A58)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = "Done", tint = Color.White, modifier = Modifier.size(18.dp))
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = "Done",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 } else {
                     Box(
@@ -2464,40 +2659,48 @@ fun TaskCard(
                             .border(2.dp, Color(0xFF1B2A58), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = "Not Done", tint = Color.White, modifier = Modifier.size(18.dp))
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = "Not Done",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
             }
         }
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.DateRange, contentDescription = "Calendar", tint = Color.Gray, modifier = Modifier.size(16.dp))
+            Icon(
+                Icons.Default.DateRange,
+                contentDescription = "Calendar",
+                tint = Color.Gray,
+                modifier = Modifier.size(16.dp)
+            )
             Spacer(Modifier.width(4.dp))
-            Text(task.date, fontSize = 12.sp, color = Color.Gray)
+            Text(
+                task.date,
+                fontSize = 12.sp,
+                color = Color.Gray
+            )
         }
     }
 }
 
-
-// Data class representing a scheduled event
-data class EventItem(
-    val time: String,
-    val category: String,
-    val description: String,
-    val color: Color
-)
-
+// Data class representing a task
+/**
+ * @param title     Task title
+ * @param subtitle  Brief description
+ * @param date      Due date (free-form text)
+ * @param members   List<Int> of avatar resource IDs for assigned members
+ * @param done      Completion status flag
+ */
 
 
 
 
 // ---------------------------- SCHEDULE SCREEN --------------------------------
-
-
-
-
 @OptIn(ExperimentalMaterial3Api::class)
-// Main composable for the Schedule screen
 @Composable
 fun ScheduleScreen(
     onBack: () -> Unit,
@@ -2506,61 +2709,150 @@ fun ScheduleScreen(
     onNavigateToGroups: () -> Unit,
     onNavigateToTasks: () -> Unit
 ) {
+    // Dialog visibility state for adding a new event
+    var showDialog by remember { mutableStateOf(false) }
+    // State for input fields when creating a new event
+    var newTime by remember { mutableStateOf("") }
+    var newCategory by remember { mutableStateOf("") }
+    var newDescription by remember { mutableStateOf("") }
+    var newDate by remember { mutableStateOf("") }
+    // Selected group for the new event
+    var selectedGroup by remember { mutableStateOf<String?>(null) }
+    // Predefined list of groups
+    val groupList = listOf("Project Alpha", "Marketing Team", "Database Sync")
+    // State for dropdown menu expansion when choosing a group
+    var groupDropdownExpanded by remember { mutableStateOf(false) }
+
+    // ---------- States for editing an existing event ----------
+    var editingDay by remember { mutableStateOf<String?>(null) }
+    var editingEvent by remember { mutableStateOf<EventItem?>(null) }
+    var editTime by remember { mutableStateOf("") }
+    var editCategory by remember { mutableStateOf("") }
+    var editDescription by remember { mutableStateOf("") }
+    var editGroup by remember { mutableStateOf<String?>(null) }
+
+    // ---------- Sample schedule data (only Monday & Tuesday entries) ----------
+    var events by remember {
+        mutableStateOf(
+            listOf<Pair<String, List<EventItem>>>(
+                // Example event on Monday, July 18, 2025
+                "18 / 07 / 2025 Monday" to listOf(
+                    EventItem("13:00 - 15:00", "A", "Team meeting with marketing (Project Alpha)", Color(0xFFFFA726))
+                ),
+                // Example event on Tuesday, August 20, 2025
+                "20 / 08 / 2025 Tuesday" to listOf(
+                    EventItem("14:00 - 14:30", "C", "Interview with candidate (Marketing Team)", Color(0xFF4CAF50))
+                )
+            )
+        )
+    }
+
+    // ---------- Search and filter states ----------
+    var searchMode by remember { mutableStateOf(false) }  // Toggle for search bar visibility
+    var searchQuery by remember { mutableStateOf("") }  // Text input for search
+    // List of available dates from events
+    val dateOptions = events.map { it.first }
+    // Currently selected date filter
+    var selectedDate by remember { mutableStateOf<String?>(null) }
+    // Compute filtered list of events based on search query and selected date
+    val filteredEvents = remember(events, searchQuery, selectedDate) {
+        events
+            .filter { selectedDate == null || it.first == selectedDate }
+            .map { (day, list) ->
+                val newList = if (searchQuery.isBlank()) list
+                else list.filter { it.description.contains(searchQuery, ignoreCase = true) }
+                day to newList
+            }
+            .filter { it.second.isNotEmpty() }
+    }
+
+    // Scaffold provides structure: top bar, content, FAB, bottom bar
     Scaffold(
-        // Top app bar with title and search icon
         topBar = {
             TopAppBar(
-                title = { Text("Schedule", color = Color.White) },
+                title = {
+                    if (searchMode) {
+                        // Show text field when in search mode
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Search schedule...") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            )
+                        )
+                    } else {
+                        // Default title when not searching
+                        Text("Schedule", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    }
+                },
                 actions = {
-                    IconButton(onClick = { /* Handle search */ }) {
-                        Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+                    if (searchMode) {
+                        // Close search mode action
+                        IconButton(onClick = {
+                            searchMode = false
+                            searchQuery = ""
+                        }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                        }
+                    } else {
+                        // Enter search mode action
+                        IconButton(onClick = { searchMode = true }) {
+                            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1B2A58))
             )
         },
-
-        // Floating action button to add a new event
         floatingActionButton = {
+            // Button to add a new event
             FloatingActionButton(
-                onClick = { /* Add event */ },
+                onClick = { showDialog = true },
                 containerColor = Color(0xFF1B2A58),
                 contentColor = Color.White
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Event")
             }
         },
-
-        // Bottom navigation bar with different app sections
         bottomBar = {
-            NavigationBar(
-                containerColor = Color.White,
-                modifier = Modifier.shadow(elevation = 8.dp) // Elevation for shadow effect
-            ) {
+            // Navigation bar at the bottom of the screen
+            NavigationBar(containerColor = Color.White, modifier = Modifier.shadow(elevation = 8.dp)) {
+                // Groups tab
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Group, contentDescription = "Groups") },
                     label = { Text("Groups") },
                     selected = false,
                     onClick = onNavigateToGroups
                 )
+                // Contacts tab
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Person, contentDescription = "Contacts") },
                     label = { Text("Contacts") },
                     selected = false,
                     onClick = onNavigateToContacts
                 )
+                // Home tab
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
                     label = { Text("Home") },
                     selected = false,
                     onClick = onNavigateToHome
                 )
+                // Tasks tab
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.CheckCircle, contentDescription = "Tasks") },
                     label = { Text("Tasks") },
                     selected = false,
                     onClick = onNavigateToTasks
                 )
+                // Schedule tab (currently selected)
                 NavigationBarItem(
                     icon = {
                         Icon(
@@ -2569,126 +2861,376 @@ fun ScheduleScreen(
                             tint = Color(0xFF1B2A58)
                         )
                     },
-                    label = {
-                        Text(
-                            "Schedule",
-                            color = Color(0xFF1B2A58)
-                        )
-                    },
-                    selected = true, // Current screen is Schedule
+                    label = { Text("Schedule", color = Color(0xFF1B2A58)) },
+                    selected = true,
                     onClick = {}
                 )
             }
         }
     ) { innerPadding ->
+        // Main content column with padding from Scaffold
         Column(
             modifier = Modifier
-                .padding(innerPadding) // Prevent overlap with top/bottom bars
+                .padding(innerPadding)
                 .padding(16.dp)
         ) {
-            // Static date picker (not editable, placeholder format)
-            OutlinedTextField(
-                value = "DD/MM/YYYY", // Placeholder date format
-                onValueChange = {},
-                enabled = false,
-                trailingIcon = {
-                    Icon(Icons.Default.CalendarToday, contentDescription = "Calendar")
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
+            // Date filter dropdown
+            if (dateOptions.isNotEmpty()) {
+                var expanded by remember { mutableStateOf(false) }
+                OutlinedButton(
+                    onClick = { expanded = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(selectedDate ?: "Select a date")
+                }
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    // Option to show all dates
+                    DropdownMenuItem(
+                        text = { Text("All dates") },
+                        onClick = {
+                            selectedDate = null
+                            expanded = false
+                        }
+                    )
+                    // List each date option
+                    dateOptions.forEach { date ->
+                        DropdownMenuItem(
+                            text = { Text(date) },
+                            onClick = {
+                                selectedDate = date
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
+            // Show message if no events match filters
+            if (filteredEvents.isEmpty()) {
+                Text("No schedules found.", color = Color.Gray, modifier = Modifier.align(Alignment.CenterHorizontally))
+            } else {
+                // Render each day block with its events
+                filteredEvents.forEach { (day, eventList) ->
+                    DayBlock(day, eventList, onEventClick = { event ->
+                        // Prepare editing states when an event is clicked
+                        editingDay = day
+                        editingEvent = event
+                        editTime = event.time
+                        editCategory = event.category
+                        editDescription = event.description
+                        editGroup = groupList.firstOrNull { event.description.contains(it) }
+                    })
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+        }
 
-            // Event section for Monday
-            DayBlock("18 / 07 / 2025                                               Monday", listOf(
-                EventItem("13:00 - 15:00", "A", "Team meeting with marketing", Color(0xFFFFA726)),
-            ))
+        // ---------- Dialog for adding a new event ----------
+        if (showDialog) {
+            AlertDialog(
+                onDismissRequest = { showDialog = false },
+                title = { Text("New Schedule") },
+                text = {
+                    Column {
+                        // Input for date
+                        OutlinedTextField(
+                            value = newDate,
+                            onValueChange = { newDate = it },
+                            label = { Text("Date (ex: 20 / 08 / 2025 Tuesday)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        // Input for time
+                        OutlinedTextField(
+                            value = newTime,
+                            onValueChange = { newTime = it },
+                            label = { Text("Time (ex: 14:00 - 15:00)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        // Input for category
+                        OutlinedTextField(
+                            value = newCategory,
+                            onValueChange = { newCategory = it },
+                            label = { Text("Category (ex: A, B...)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        // Input for description
+                        OutlinedTextField(
+                            value = newDescription,
+                            onValueChange = { newDescription = it },
+                            label = { Text("Description") },
+                            singleLine = false,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        // Group selection dropdown
+                        Box {
+                            OutlinedButton(
+                                onClick = { groupDropdownExpanded = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(selectedGroup ?: "Choose a group")
+                            }
+                            DropdownMenu(
+                                expanded = groupDropdownExpanded,
+                                onDismissRequest = { groupDropdownExpanded = false }
+                            ) {
+                                groupList.forEach { group ->
+                                    DropdownMenuItem(
+                                        text = { Text(group) },
+                                        onClick = {
+                                            selectedGroup = group
+                                            groupDropdownExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    // Save button logic for new event creation
+                    TextButton(onClick = {
+                        if (newDate.isNotBlank() && newTime.isNotBlank() && selectedGroup != null) {
+                            val newEvent = EventItem(
+                                time = newTime,
+                                category = newCategory.ifBlank { "A" },
+                                description = newDescription + " (" + selectedGroup + ")",
+                                color = Color(0xFF607D8B)
+                            )
+                            // Add to existing date or append a new date entry
+                            val idx = events.indexOfFirst { it.first == newDate }
+                            if (idx != -1) {
+                                events = events.toMutableList().also {
+                                    val list = it[idx].second + newEvent
+                                    it[idx] = it[idx].copy(second = list)
+                                }
+                            } else {
+                                events = events + (newDate to listOf(newEvent))
+                            }
+                            // Reset input fields and close dialog
+                            newTime = ""
+                            newCategory = ""
+                            newDescription = ""
+                            newDate = ""
+                            selectedGroup = null
+                            showDialog = false
+                        }
+                    }) { Text("Save") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDialog = false }) {
+                        Text("Cancel")
+                    }
+                },
+                shape = RoundedCornerShape(12.dp)
+            )
+        }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Event section for Tuesday
-            DayBlock("20 / 08 / 2025                                              Tuesday", listOf(
-                EventItem("14:00 - 14:30", "C", "Interview with candidate", Color(0xFF4CAF50))
-            ))
+        // ---------- Dialog for editing or deleting an existing event ----------
+        if (editingEvent != null && editingDay != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    editingEvent = null
+                    editingDay = null
+                },
+                title = { Text("Edit Schedule") },
+                text = {
+                    Column {
+                        // Editable time field
+                        OutlinedTextField(
+                            value = editTime,
+                            onValueChange = { editTime = it },
+                            label = { Text("Time") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        // Editable category field
+                        OutlinedTextField(
+                            value = editCategory,
+                            onValueChange = { editCategory = it },
+                            label = { Text("Category") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        // Editable description field
+                        OutlinedTextField(
+                            value = editDescription,
+                            onValueChange = { editDescription = it },
+                            label = { Text("Description") },
+                            singleLine = false,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        // Editable group selection dropdown
+                        Box {
+                            var expanded by remember { mutableStateOf(false) }
+                            OutlinedButton(
+                                onClick = { expanded = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(editGroup ?: "Choose a group")
+                            }
+                            DropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                groupList.forEach { group ->
+                                    DropdownMenuItem(
+                                        text = { Text(group) },
+                                        onClick = {
+                                            editGroup = group
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    // Save changes to the selected event
+                    TextButton(onClick = {
+                        val newDesc = if (editDescription.contains("(")) editDescription.substringBefore("(").trim() else editDescription
+                        val updatedEvent = editingEvent!!.copy(
+                            time = editTime,
+                            category = editCategory,
+                            description = newDesc + " (" + (editGroup ?: "") + ")"
+                        )
+                        // Update event in the list
+                        events = events.map { (day, list) ->
+                            if (day == editingDay) {
+                                day to list.map { if (it == editingEvent) updatedEvent else it }
+                            } else day to list
+                        }
+                        editingEvent = null
+                        editingDay = null
+                    }) { Text("Save") }
+                },
+                dismissButton = {
+                    Row {
+                        // Delete button to remove the event entirely
+                        TextButton(onClick = {
+                            events = events.map { (day, list) ->
+                                if (day == editingDay) {
+                                    day to list.filterNot { it == editingEvent }
+                                } else day to list
+                            }.filter { it.second.isNotEmpty() }
+                            editingEvent = null
+                            editingDay = null
+                        }) {
+                            Text("Delete", color = Color.Red)
+                        }
+                        Spacer(Modifier.width(16.dp))
+                        // Cancel editing dialog
+                        TextButton(onClick = {
+                            editingEvent = null
+                            editingDay = null
+                        }) { Text("Cancel") }
+                    }
+                },
+                shape = RoundedCornerShape(12.dp)
+            )
         }
     }
 }
 
-// Composable that displays a block of scheduled events for a specific day
+// Data class representing an event item in the schedule
+
+data class EventItem(
+    val time: String,
+    val category: String,
+    val description: String,
+    val color: Color
+)
+
+// Composable to render a block for a single day with its events
 @Composable
-fun DayBlock(day: String, events: List<EventItem>) {
+fun DayBlock(
+    day: String,
+    events: List<EventItem>,
+    onEventClick: (EventItem) -> Unit
+) {
     Card(
-        shape = RoundedCornerShape(12.dp), // Rounded corners for the card
-        modifier = Modifier.fillMaxWidth(), // Card fills available width
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F8F8)), // Light background
-        border = BorderStroke(1.dp, Color(0xFFE0E0E0)) // Light gray border
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F8F8)),
+        border = BorderStroke(1.dp, Color(0xFFE0E0E0))
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Day header (e.g., "18/07/2025 Monday") with full-width background
+            // Header showing the day label
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF1B2A58)) // Dark blue header background
-                    .padding(vertical = 12.dp) // Vertical padding inside header
+                    .background(Color(0xFF1B2A58))
+                    .padding(vertical = 12.dp)
             ) {
                 Text(
                     text = day,
-                    fontSize = 14.sp, // Slightly smaller text
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Normal,
                     color = Color.White,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp), // Left/right padding inside text
-                    textAlign = TextAlign.Start // Align text to the start
+                        .padding(horizontal = 16.dp),
+                    textAlign = TextAlign.Start
                 )
             }
-
-            // Event list for this day
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp) // Padding around the list of events
+                    .padding(16.dp)
             ) {
                 events.forEach { event ->
-                    Spacer(modifier = Modifier.height(12.dp)) // Space between events
-                    EventItemView(event) // Display each individual event
+                    Spacer(modifier = Modifier.height(12.dp))
+                    EventItemView(event, onClick = { onEventClick(event) })
                 }
             }
         }
     }
 }
 
-// Composable that shows details for a single event item
+// Composable to render an individual event item view
 @Composable
-fun EventItemView(event: EventItem) {
+fun EventItemView(event: EventItem, onClick: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxWidth() // Ensure full-width layout
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
     ) {
-        // Display the time range of the event (e.g., "13:00 - 15:00")
+        // Display time of the event
         Text(
             text = event.time,
             fontSize = 13.sp,
-            color = Color(0xFF757575), // Medium gray text
-            modifier = Modifier.padding(start = 4.dp) // Slight left padding
+            color = Color(0xFF757575),
+            modifier = Modifier.padding(start = 4.dp)
         )
-
-        // Row containing the event's colored category box and its description
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White, shape = RoundedCornerShape(8.dp)) // White background for event row
-                .padding(12.dp) // Inner padding for spacing
-                .border(1.dp, Color(0xFFEEEEEE), RoundedCornerShape(8.dp)) // Light gray border
+                .background(Color.White, shape = RoundedCornerShape(8.dp))
+                .padding(12.dp)
+                .border(1.dp, Color(0xFFEEEEEE), RoundedCornerShape(8.dp))
         ) {
-            Spacer(modifier = Modifier.width(11.dp)) // Small left spacing to offset content
-
-            // Colored category box (e.g., "A", "B", "C") with fixed size
+            Spacer(modifier = Modifier.width(11.dp))
+            // Colored box showing event category
             Box(
                 modifier = Modifier
-                    .size(36.dp) // Square box
-                    .clip(RoundedCornerShape(4.dp)) // Slightly rounded corners
-                    .background(event.color), // Dynamic color based on event
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(event.color),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -2698,20 +3240,16 @@ fun EventItemView(event: EventItem) {
                     fontWeight = FontWeight.Bold
                 )
             }
-
-            Spacer(modifier = Modifier.width(16.dp)) // Space between box and text
-
+            Spacer(modifier = Modifier.width(16.dp))
+            // Description and location of the event
             Column(
-                modifier = Modifier.weight(1f) // Take remaining horizontal space
+                modifier = Modifier.weight(1f)
             ) {
-                // Description of the event
                 Text(
                     text = event.description,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
                 )
-
-                // Location hint based on the category (placeholder logic)
                 Text(
                     text = "Location: Meeting Room ${event.category}",
                     fontSize = 12.sp,
