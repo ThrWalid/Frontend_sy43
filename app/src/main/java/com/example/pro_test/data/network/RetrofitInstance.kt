@@ -6,10 +6,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitInstance {
 
-    // 👇 Base URL de ton backend Ktor
     private const val BASE_URL = "http://10.0.2.2:8080/"
 
-    // Intercepteur pour afficher les requêtes HTTP dans Logcat
     private val logging = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
@@ -18,8 +16,7 @@ object RetrofitInstance {
         .addInterceptor(logging)
         .build()
 
-    // Retrofit prêt à l'emploi
-    private val retrofit by lazy {
+    val retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(client)
@@ -27,8 +24,13 @@ object RetrofitInstance {
             .build()
     }
 
-    // Accès à tes endpoints API
+    // Access à tes différents endpoints
     val authApi: AuthApi by lazy {
         retrofit.create(AuthApi::class.java)
     }
+
+    val homeApi: HomeApi by lazy {
+        retrofit.create(HomeApi::class.java)
+    }
+
 }

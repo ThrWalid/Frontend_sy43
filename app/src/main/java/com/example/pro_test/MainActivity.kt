@@ -4,6 +4,16 @@ import android.os.Bundle
 import android.widget.Toast
 import android.util.Log
 import androidx.compose.runtime.LaunchedEffect
+// home
+import androidx.compose.runtime.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -126,6 +136,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.content.Context
 import androidx.compose.ui.platform.LocalContext
+import com.example.pro_test.data.network.HomeApi
+import com.example.pro_test.data.network.HomeResponse
 
 import com.example.pro_test.data.network.RetrofitInstance
 import com.example.pro_test.data.network.LoginRequest
@@ -331,9 +343,9 @@ fun WelcomeScreen(onGetStartedClick: () -> Unit) {
 
 
 
-// -------------------------------------- Login Screen --------------------------------------
 
 
+// --------------------------- Login Screen --------------------------------------
 
 @Composable
 fun ModernLoginScreen(
@@ -434,7 +446,6 @@ fun ModernLoginScreen(
                                     val loginData = response.body()
                                     val token = loginData?.token ?: ""
 
-                                    // Save token
                                     context.getSharedPreferences("APP_PREFS", Context.MODE_PRIVATE)
                                         .edit()
                                         .putString("JWT_TOKEN", token)
@@ -442,7 +453,15 @@ fun ModernLoginScreen(
 
                                     onLoginSuccess()
                                 } else {
-                                    loginError = "Login failed: ${response.code()}"
+                                    val errorMsg = response.errorBody()?.string()?.lowercase()
+                                    loginError = when {
+                                        response.code() == 401 && errorMsg?.contains("email") == true -> " Incorrect email"
+                                        response.code() == 401 && errorMsg?.contains("password") == true -> " Incorrect password"
+                                        response.code() == 401 -> " Invalid credentials"
+                                        response.code() == 500 -> " Server error. Please try again later"
+                                        else -> "Error: ${response.code()}"
+                                    }
+
                                 }
                             } catch (e: Exception) {
                                 loginError = "Erreur réseau: ${e.localizedMessage}"
@@ -500,6 +519,7 @@ fun ModernLoginScreen(
         }
     }
 }
+
 
 
 //------------------------------------------- Sign Up Screen ---------------------------
@@ -640,7 +660,7 @@ fun SignUpScreen(
                             showPasswordError = true
                         }
                     } else {
-                        registerError = "Tous les champs sont requis"
+                        registerError = "All fields are required"
                     }
                 },
                 modifier = Modifier
@@ -662,7 +682,35 @@ fun SignUpScreen(
 }
 
 // ----------------------------------------- Home Screen -----------------------------------
+// Define state for Home API
+data class HomeUiState(
+    val isLoading: Boolean = false,
+    val data: HomeResponse? = null,
+    val error: String? = null
+)
 
+@Composable
+fun rememberHomeState(token: String): State<HomeUiState> {
+    val state = remember { mutableStateOf(HomeUiState(isLoading = true)) }
+
+    LaunchedEffect(token) {
+        try {
+            val response = withContext(Dispatchers.IO) {
+                RetrofitInstance.retrofit.create(HomeApi::class.java)
+                    .getHomeData("Bearer $token")
+            }
+            if (response.isSuccessful) {
+                state.value = HomeUiState(data = response.body())
+            } else {
+                state.value = HomeUiState(error = "Error ${response.code()}")
+            }
+        } catch (e: Exception) {
+            state.value = HomeUiState(error = e.message ?: "Unknown error")
+        }
+    }
+
+    return state
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -676,27 +724,52 @@ fun HomeScreen(
     var showPersonalDialog by remember { mutableStateOf(false) }
     var showSharedDialog by remember { mutableStateOf(false) }
     var selectedIndex by remember { mutableStateOf(2) }
+    var showFriends by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
+    val jwt = context.getSharedPreferences("APP_PREFS", Context.MODE_PRIVATE)
+        .getString("JWT_TOKEN", null) ?: ""
+    val homeState = rememberHomeState(jwt)
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopSection(onLogout)
 
-        MessageSection(
-            onFriendClick = { Toast.makeText(context, "Friend Clicked", Toast.LENGTH_SHORT).show() },
-            onGroupClick  = { Toast.makeText(context, "Group Clicked",  Toast.LENGTH_SHORT).show() }
-        )
+        when {
+            homeState.value.isLoading -> {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+            }
+            homeState.value.error != null -> {
+                Text("Error: ${homeState.value.error}", color = Color.Red, modifier = Modifier.padding(16.dp))
+            }
+            homeState.value.data != null -> {
+                InfoCard(
+                    title = "Current Friend Messages",
+                    icon = Icons.Default.Person,
+                    onClick = { showFriends = !showFriends }
+                )
+                if (showFriends) {
+                    FriendsList(homeState.value.data!!.friends)
+                }
+
+                InfoCard(
+                    title = "Current Group Messages",
+                    icon = Icons.Default.Groups,
+                    onClick = { /* TODO: Add group dropdown */ }
+                )
+            }
+        }
 
         Spacer(Modifier.height(24.dp))
 
         EventsRowSection(
             onPersonalEventClick = { showPersonalDialog = true },
-            onSharedEventClick   = { showSharedDialog   = true }
+            onSharedEventClick = { showSharedDialog = true }
         )
 
         Spacer(modifier = Modifier.weight(1f))
 
         NavigationBar(containerColor = Color.White) {
-            val items = listOf("Groups","Contacts","Home","Tasks","Schedule")
+            val items = listOf("Groups", "Contacts", "Home", "Tasks", "Schedule")
             val icons = listOf(
                 Icons.Default.Groups,
                 Icons.Default.Person,
@@ -706,12 +779,12 @@ fun HomeScreen(
             )
             items.forEachIndexed { index, item ->
                 NavigationBarItem(
-                    icon =    { Icon(icons[index], contentDescription = item) },
-                    label =   { Text(item) },
+                    icon = { Icon(icons[index], contentDescription = item) },
+                    label = { Text(item) },
                     selected = selectedIndex == index,
                     onClick = {
                         selectedIndex = index
-                        when(index){
+                        when (index) {
                             0 -> onNavigateToGroups()
                             1 -> onNavigateToContacts()
                             3 -> onNavigateToTasks()
@@ -721,7 +794,7 @@ fun HomeScreen(
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Color(0xFF1B2A58),
                         selectedTextColor = Color(0xFF1B2A58),
-                        indicatorColor    = Color(0xFFF1F1F1)
+                        indicatorColor = Color(0xFFF1F1F1)
                     )
                 )
             }
@@ -731,17 +804,62 @@ fun HomeScreen(
     if (showPersonalDialog) {
         PersonalTaskDialog(
             onDismiss = { showPersonalDialog = false },
-            onSave    = { /* sauver */ showPersonalDialog = false }
+            onSave = { showPersonalDialog = false }
         )
     }
 
     if (showSharedDialog) {
         SharedTaskDialog(
             onDismiss = { showSharedDialog = false },
-            onSave    = { /* sauver */ showSharedDialog = false }
+            onSave = { showSharedDialog = false }
         )
     }
 }
+
+@Composable
+fun InfoCard(title: String, icon: ImageVector, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3ECF9))
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = Color(0xFF1B2A58), modifier = Modifier.size(32.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(title, fontWeight = FontWeight.Bold, color = Color(0xFF1B2A58))
+                Text("Lorem ipsum dolor sit amet...", fontSize = 12.sp, color = Color.Gray)
+            }
+        }
+    }
+}
+
+@Composable
+fun FriendsList(friends: List<String>) {
+    LazyColumn(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        items(friends) { friend ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                elevation = CardDefaults.cardElevation(4.dp)
+            ) {
+                Text(
+                    text = friend,
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+        }
+    }
+}
+
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
