@@ -2,9 +2,6 @@ package com.example.pro_test
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
-import android.util.Log
-import androidx.compose.runtime.LaunchedEffect
-
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.DrawableRes
@@ -115,33 +112,36 @@ import androidx.compose.material3.MaterialTheme as Pro_testTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.NavController
+import com.example.pro_test.data.OfflineTaskRepository
+import com.example.pro_test.data.Task
+import com.example.pro_test.data.TaskDatabase
+import com.example.pro_test.data.TaskRepository
+import com.example.pro_test.ui.theme.ApplicationViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
-import android.content.Context
-import androidx.compose.ui.platform.LocalContext
-
-import com.example.pro_test.data.network.RetrofitInstance
-import com.example.pro_test.data.network.LoginRequest
-import com.example.pro_test.data.network.RegisterRequest
 
 // Entry point of the Android application using Jetpack Compose
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Creating repository
+        val taskRepository: TaskRepository by lazy {
+            OfflineTaskRepository(TaskDatabase.getDatabase(this).taskDao())
+        }
+
         // Set the UI content using Jetpack Compose
         setContent {
             // Apply the Material Design theme
             MaterialTheme {
                 // Call the main navigation function
-                AppNavigation()
+                AppNavigation(taskRepository)
             }
         }
     }
@@ -149,9 +149,10 @@ class MainActivity : ComponentActivity() {
 
 // Composable function that handles navigation between screens
 @Composable
-fun AppNavigation() {
+fun AppNavigation(taskRepository: TaskRepository) {
     // NavController used to manage app navigation
     val navController = rememberNavController()
+    val viewModel = ApplicationViewModel(taskRepository)
 
     // NavHost defines the navigation graph with screen destinations
     NavHost(navController = navController, startDestination = "welcome") {
@@ -237,6 +238,7 @@ fun AppNavigation() {
         // Tasks screen route
         composable("tasks") {
             TasksScreen(
+                viewModel = viewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToHome = { navController.navigate("home") },
                 onNavigateToContacts = { navController.navigate("contacts") },
@@ -337,240 +339,67 @@ fun WelcomeScreen(onGetStartedClick: () -> Unit) {
 
 @Composable
 fun ModernLoginScreen(
-    onLoginSuccess: () -> Unit,
-    onNavigateToSignUp: () -> Unit,
-    onForgotPassword: () -> Unit
+    onLoginSuccess: () -> Unit,       // Callback triggered when login is successful
+    onNavigateToSignUp: () -> Unit,   // Callback to navigate to the sign-up screen
+    onForgotPassword: () -> Unit      // Callback for forgot password action
 ) {
-    // States
+    // State variables for email and password inputs
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-    var loginError by remember { mutableStateOf<String?>(null) }
+    var passwordVisible by remember { mutableStateOf(false) } // Toggle for password visibility
 
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-
-    // UI Colors
-    val primaryColor = Color(0xFF1B2A58)
-    val signUpAccent = Color(0xFFC49F50)
+    // UI colors and gradient
+    val primaryColor = Color(0xFF1B2A58)     // Main theme color (dark blue)
+    val signUpAccent = Color(0xFFC49F50)     // Accent color for sign-up (golden)
     val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFFE3F2FD), Color.White)
+        colors = listOf(Color(0xFFE3F2FD), Color.White) // Light blue to white background
     )
 
+    // Outer container for the screen layout
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .background(backgroundGradient)
-            .padding(horizontal = 24.dp)
+            .fillMaxSize()                  // Fills the entire screen
+            .background(backgroundGradient) // Applies background gradient
+            .padding(horizontal = 24.dp)    // Horizontal padding for content
     ) {
+        // Vertical layout for the login content
         Column(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalArrangement = Arrangement.Center,          // Centers content vertically
+            horizontalAlignment = Alignment.CenterHorizontally // Centers content horizontally
         ) {
-            Text("Welcome Back", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = primaryColor)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Your professional hub starts here", fontSize = 14.sp, color = Color.Gray)
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Email Input
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Email") },
-                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = primaryColor) },
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Password Input
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Password") },
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = primaryColor) },
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = null,
-                            tint = primaryColor
-                        )
-                    }
-                },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Forgot Password
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(onClick = onForgotPassword) {
-                    Text("Forgot password?", color = signUpAccent)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Login Button
-            Button(
-                onClick = {
-                    if (email.isNotBlank() && password.isNotBlank()) {
-                        coroutineScope.launch {
-                            try {
-                                val response = RetrofitInstance.authApi.login(
-                                    LoginRequest(email = email, password = password)
-                                )
-                                if (response.isSuccessful) {
-                                    val loginData = response.body()
-                                    val token = loginData?.token ?: ""
-
-                                    // Save token
-                                    context.getSharedPreferences("APP_PREFS", Context.MODE_PRIVATE)
-                                        .edit()
-                                        .putString("JWT_TOKEN", token)
-                                        .apply()
-
-                                    onLoginSuccess()
-                                } else {
-                                    loginError = "Login failed: ${response.code()}"
-                                }
-                            } catch (e: Exception) {
-                                loginError = "Erreur réseau: ${e.localizedMessage}"
-                            }
-                        }
-                    } else {
-                        loginError = "Tous les champs sont requis"
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
-            ) {
-                Text("Login", color = Color.White, fontWeight = FontWeight.Bold)
-            }
-
-            // Error message
-            loginError?.let {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = it,
-                    color = Color.Red,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("OR", color = Color.Gray)
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Sign-up
-            OutlinedButton(
-                onClick = onNavigateToSignUp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.5.dp, signUpAccent)
-            ) {
-                Text("Create New Account", fontWeight = FontWeight.Medium)
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
+            // Heading text
             Text(
-                text = "By continuing, you agree to our Terms and Privacy Policy",
-                fontSize = 12.sp,
-                color = Color.Gray,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 8.dp)
+                text = "Welcome Back",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = primaryColor
             )
-        }
-    }
-}
 
-
-//------------------------------------------- Sign Up Screen ---------------------------
-
-@Composable
-fun SignUpScreen(
-    onSignUpSuccess: () -> Unit,
-    onNavigateBack: () -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-    var showPasswordError by remember { mutableStateOf(false) }
-    var registerError by remember { mutableStateOf<String?>(null) }
-
-    val primaryColor = Color(0xFF1B2A58)
-    val signUpAccent = Color(0xFFC49F50)
-    val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(Color(0xFFE3F2FD), Color.White)
-    )
-
-    val coroutineScope = rememberCoroutineScope()
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(backgroundGradient)
-            .padding(horizontal = 24.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("Create Account", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = primaryColor)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Join the hub and start your journey", fontSize = 14.sp, color = Color.Gray)
+
+            // Subheading text
+            Text("Your professional hub starts here", fontSize = 14.sp, color = Color.Gray)
+
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Full Name
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Full Name") },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = primaryColor) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Email
+            // Email input field
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = { email = it }, // Update email state
                 label = { Text("Email") },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = primaryColor) },
-                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Password
+            // Password input field with visibility toggle
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = { password = it }, // Update password state
                 label = { Text("Password") },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = primaryColor) },
                 trailingIcon = {
@@ -583,9 +412,190 @@ fun SignUpScreen(
                     }
                 },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Forgot password text aligned to the right
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onForgotPassword) {
+                    Text("Forgot password?", color = signUpAccent)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Login button
+            Button(
+                onClick = {
+                    if (email.isNotBlank() && password.isNotBlank()) {
+                        onLoginSuccess() // Trigger success callback if fields are not empty
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
+            ) {
+                Text("Login", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Divider with "OR" text
+            Text("OR", color = Color.Gray)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Sign-up button (outlined)
+            OutlinedButton(
+                onClick = onNavigateToSignUp, // Navigate to sign-up screen
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.5.dp, signUpAccent)
+            ) {
+                Text("Create New Account", fontWeight = FontWeight.Medium)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Legal disclaimer
+            Text(
+                text = "By continuing, you agree to our Terms and Privacy Policy",
+                fontSize = 12.sp,
+                color = Color.Gray,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+        }
+    }
+}
+
+
+
+
+//------------------------------------------- Sign Up Screen ---------------------------
+
+
+
+
+@Composable
+fun SignUpScreen(
+    onSignUpSuccess: () -> Unit,
+    onNavigateBack: () -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var showPasswordError by remember { mutableStateOf(false) }
+
+    val primaryColor = Color(0xFF1B2A58)
+    val signUpAccent = Color(0xFFC49F50)
+    val backgroundGradient = Brush.verticalGradient(
+        colors = listOf(Color(0xFFE3F2FD), Color.White)
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(backgroundGradient)
+            .padding(horizontal = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Create Account",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = primaryColor
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Join the hub and start your journey",
+                fontSize = 14.sp,
+                color = Color.Gray
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Full Name
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Full Name") },
+                leadingIcon = {
+                    Icon(Icons.Default.Person, contentDescription = null, tint = primaryColor)
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryColor,
+                    cursorColor = primaryColor
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Email
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email") },
+                leadingIcon = {
+                    Icon(Icons.Default.Email, contentDescription = null, tint = primaryColor)
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryColor,
+                    cursorColor = primaryColor
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Password
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                leadingIcon = {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = primaryColor)
+                },
+                trailingIcon = {
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(
+                            imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = null,
+                            tint = primaryColor
+                        )
+                    }
+                },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryColor,
+                    cursorColor = primaryColor
+                ),
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -595,52 +605,39 @@ fun SignUpScreen(
                 value = confirmPassword,
                 onValueChange = { confirmPassword = it },
                 label = { Text("Confirm Password") },
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = primaryColor) },
+                leadingIcon = {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = primaryColor)
+                },
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryColor,
+                    cursorColor = primaryColor
+                ),
+                modifier = Modifier.fillMaxWidth()
             )
 
             if (showPasswordError) {
-                Text("Passwords do not match", color = Color.Red)
-            }
-
-            registerError?.let {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(it, color = Color.Red)
+                Text(
+                    text = "Passwords do not match",
+                    color = Color.Red,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Register Button
+            // Create Account Button
             Button(
                 onClick = {
                     if (name.isNotBlank() && email.isNotBlank() && password.isNotBlank() && confirmPassword.isNotBlank()) {
                         if (password == confirmPassword) {
                             showPasswordError = false
-                            coroutineScope.launch {
-                                try {
-                                    val response = RetrofitInstance.authApi.register(
-                                        RegisterRequest(name = name, email = email, password = password)
-                                    )
-                                    if (response.isSuccessful) {
-                                        val msg = response.body()?.message ?: "Inscription réussie"
-                                        Log.d("REGISTER_SUCCESS", msg)
-                                        onSignUpSuccess()
-                                    } else {
-                                        val errorMsg = response.errorBody()?.string()
-                                        registerError = "Erreur ${response.code()}:\n$errorMsg"
-                                    }
-                                } catch (e: Exception) {
-                                    registerError = "Erreur: ${e.localizedMessage}"
-                                }
-                            }
+                            onSignUpSuccess()
                         } else {
                             showPasswordError = true
                         }
-                    } else {
-                        registerError = "Tous les champs sont requis"
                     }
                 },
                 modifier = Modifier
@@ -660,6 +657,9 @@ fun SignUpScreen(
         }
     }
 }
+
+
+
 
 // ----------------------------------------- Home Screen -----------------------------------
 
@@ -1063,26 +1063,7 @@ fun EventsRowSection(
 @Composable
 fun TopSection(onLogout: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }         // Dropdown menu visibility
-    var userName by remember { mutableStateOf<String?>(null) }   // Dynamic user name
-
-    val context = LocalContext.current
-    val jwt = context.getSharedPreferences("APP_PREFS", Context.MODE_PRIVATE)
-        .getString("JWT_TOKEN", null)
-
-    LaunchedEffect(Unit) {
-        if (jwt != null) {
-            try {
-                val response = RetrofitInstance.authApi.getCurrentUser("Bearer $jwt")
-                if (response.isSuccessful) {
-                    userName = response.body()?.name
-                } else {
-                    Log.e("TopSection", "Erreur /me: ${response.code()}")
-                }
-            } catch (e: Exception) {
-                Log.e("TopSection", "Exception: ${e.localizedMessage}")
-            }
-        }
-    }
+    var selectedUser by remember { mutableStateOf("Ouiam") }   // Currently selected user
 
     Column(
         modifier = Modifier
@@ -1097,33 +1078,44 @@ fun TopSection(onLogout: () -> Unit) {
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        // Row with user name, dropdown icon, and logout menu
+        // Row with user name, dropdown icon, and account switch/logout menu
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.clickable { expanded = true } // Expand dropdown on click
         ) {
-            Text(
-                text = userName ?: "Loading...",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
-            )
+            Text(selectedUser, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
 
             Icon(
                 imageVector = Icons.Default.ArrowDropDown,
-                contentDescription = "Account menu",
+                contentDescription = "Change account",
                 tint = Color.White
             )
 
+            // Dropdown menu for selecting user or logging out
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
                 DropdownMenuItem(
+                    text = { Text("Ouiam") },
+                    onClick = {
+                        selectedUser = "Ouiam"
+                        expanded = false
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Claire") },
+                    onClick = {
+                        selectedUser = "Claire"
+                        expanded = false
+                    }
+                )
+                Divider()
+                DropdownMenuItem(
                     text = { Text("Logout") },
                     onClick = {
                         expanded = false
-                        onLogout()
+                        onLogout() // Trigger logout
                     }
                 )
             }
@@ -2155,6 +2147,7 @@ data class TaskData(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(
+    viewModel: ApplicationViewModel,
     onBack: () -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToContacts: () -> Unit,
@@ -2162,30 +2155,31 @@ fun TasksScreen(
     onNavigateToSchedule: () -> Unit
 ) {
     // ─── Liste initiale avec le paramètre `members` fourni ───
-    var tasks by remember {
-        mutableStateOf(
-            listOf(
-                TaskData(
-                    title = "Design 2 App Screens",
-                    subtitle = "Need to design for citter",
-                    date = "Mon, 10 July 2025",
-                    members = listOf(R.drawable.person4, R.drawable.person3, R.drawable.person7),
-                    done = true
-                ),
-                TaskData(
-                    title = "Design 1 Website",
-                    subtitle = "Need to design for citter",
-                    date = "Tue, 23 July 2025",
-                    members = listOf(R.drawable.person6, R.drawable.person1, R.drawable.person2),
-                    done = true
-                ),
-                TaskData(
-                    title = "Data-Base",
-                    subtitle = "Need to design for citter",
-                    date = "Sat, 14 July 2026",
-                    members = emptyList(),  // pas d’avatars ici
-                    done = false
-                )
+    val tasks by viewModel.taskList
+
+    if(viewModel.taskList.value.isEmpty()) {
+        viewModel.addTask(
+            Task(
+                title = "Design 2 App Screens",
+                subtitle = "Need to design for citter",
+                date = "Mon, 10 July 2025",
+                done = true
+            )
+        )
+        viewModel.addTask(
+            Task(
+                title = "Design 1 Website",
+                subtitle = "Need to design for citter",
+                date = "Tue, 23 July 2025",
+                done = true
+            )
+        )
+        viewModel.addTask(
+            Task(
+                title = "Data-Base",
+                subtitle = "Need to design for citter",
+                date = "Sat, 14 July 2026",
+                done = false
             )
         )
     }
@@ -2300,9 +2294,8 @@ fun TasksScreen(
                 TaskCard(
                     task = task,
                     onToggle = {
-                        tasks = tasks.toMutableList().also {
-                            it[index] = it[index].copy(done = !it[index].done)
-                        }
+                        val updatedTask = task.copy(done = !task.done)
+                        viewModel.modifyTask(updatedTask)
                     }
                 )
             }
@@ -2312,7 +2305,7 @@ fun TasksScreen(
 
 @Composable
 fun TaskCard(
-    task: TaskData,
+    task: Task,
     onToggle: () -> Unit
 ) {
     Column(
