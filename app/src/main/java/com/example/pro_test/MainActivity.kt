@@ -267,13 +267,220 @@ fun AppNavigation() {
                 onNavigateToTasks = { navController.navigate("tasks") }
             )
         }
+        composable("editEvent"){
+            EditEventScreen(
+                onCancel = {
+                    navController.popStackBack()
+                },
+                onSave = {
+                    /* Save changes */
+                    navController.popStackBack()
+                }
+            )
+        }
+        composable("sendInvitation"){
+            SendInvitationScreen(
+                onSend = {
+                    /* Send invitation */
+                    navController.popStackBack()
+                }
+            )
+        }
     }
 }
 
 
 
 // ------------------------- Welcome screen UI composable --------------------------------------------------------
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SendInviteScreen(
+    onSend: () -> Unit
+) {
+    var friendName by remember { mutableStateOf("") }
 
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Send Friend Invitation",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF1B2A58)
+        )
+
+        OutlinedTextField(
+            value = friendName,
+            onValueChange = { friendName = it },
+            label = { Text("Friend's Username") },
+            modifier = Modifier.fillMaxWidth(),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF1B2A58),
+                unfocusedBorderColor = Color.Gray
+            )
+        )
+
+        Button(
+            onClick = onSend,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B2A58))
+        ) {
+            Icon(Icons.Default.Send, contentDescription = "Send", tint = Color.White)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Send", color = Color.White)
+        }
+    }
+}
+@Composable
+fun InvitationCard(
+    name: String,
+    onAccept: () -> Unit,
+    onReject: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF6F6F6)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Color(0xFF1B2A58), shape = CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = name.first().toString(),
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = name, fontWeight = FontWeight.Bold)
+                Text(text = "wants to be your friend", fontSize = 13.sp, color = Color.Gray)
+            }
+
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = "Accept",
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier
+                    .size(28.dp)
+                    .clickable { onAccept() }
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Reject",
+                tint = Color(0xFFF44336),
+                modifier = Modifier
+                    .size(28.dp)
+                    .clickable { onReject() }
+            )
+        }
+    }
+}
+
+@Composable
+fun EditEventScreen(
+    onCancel: () -> Unit,
+    onSave: () -> Unit
+) {
+    var name by remember { mutableStateOf("ESP") }
+    var startTime by remember { mutableStateOf("13:00") }
+    var duration by remember { mutableStateOf("2 hours") }
+    var difficulty by remember { mutableStateOf("Medium") }
+    var priority by remember { mutableStateOf("High") }
+    var breakNeeded by remember { mutableStateOf(true) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Edit Event",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF1B2A58)
+        )
+
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text("Name") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        OutlinedTextField(
+            value = startTime,
+            onValueChange = { startTime = it },
+            label = { Text("Start Time") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        OutlinedTextField(
+            value = duration,
+            onValueChange = { duration = it },
+            label = { Text("Duration") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        OutlinedTextField(
+            value = difficulty,
+            onValueChange = { difficulty = it },
+            label = { Text("Difficulty") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        OutlinedTextField(
+            value = priority,
+            onValueChange = { priority = it },
+            label = { Text("Priority") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Break Needed", modifier = Modifier.weight(1f))
+            Switch(checked = breakNeeded, onCheckedChange = { breakNeeded = it })
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = onSave,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B2A58))
+        ) {
+            Text("Save Changes", color = Color.White)
+        }
+
+        OutlinedButton(
+            onClick = onCancel,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFFE0E0E0))
+        ) {
+            Text("Cancel", color = Color.Black)
+        }
+    }
+}
 
 
 @Composable
