@@ -136,6 +136,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.content.Context
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavHostController
 import com.example.pro_test.data.network.HomeApi
 import com.example.pro_test.data.network.HomeResponse
 
@@ -289,6 +290,14 @@ fun AppNavigation() {
     }
 }
 
+@Composable
+fun SendInvitationScreen(onSend: () -> Unit) {
+    TODO("Not yet implemented")
+}
+
+private fun NavHostController.popStackBack() {
+    TODO("Not yet implemented")
+}
 
 
 // ------------------------- Welcome screen UI composable --------------------------------------------------------
