@@ -1,4 +1,6 @@
 plugins {
+    id("com.google.devtools.ksp") version "2.0.0-1.0.22"
+
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
@@ -42,6 +44,11 @@ android {
 }
 
 dependencies {
+    // Database
+    implementation("androidx.room:room-runtime:2.7.2")
+    ksp("androidx.room:room-compiler:2.7.2")
+    implementation("androidx.room:room-ktx:2.7.2")
+
     // Core Android
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
