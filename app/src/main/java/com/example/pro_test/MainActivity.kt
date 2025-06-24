@@ -2767,8 +2767,8 @@ fun TasksScreen(
                                     date = editDate
                                 )
 
+                                // Possible source of errors - pay attention if any task related problems appear
                                 viewModel.modifyTask(editedTask)
-
                                 selectedTask = null
                             }
                         }) {
