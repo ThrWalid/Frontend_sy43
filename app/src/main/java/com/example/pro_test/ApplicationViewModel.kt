@@ -19,6 +19,35 @@ class ApplicationViewModel(val taskRepository: TaskRepository): ViewModel() {
             taskRepository.getAllTasksStream().collect { tasks ->
                 _taskList.value = tasks
             }
+
+            // Initial mockup data for testing the application
+            if(taskList.value.isEmpty()) {
+                addTask(
+                    Task(
+                        title = "Design 2 App Screens",                     // Task title
+                        subtitle = "Need to design for citter",             // Brief description
+                        date = "Mon, 10 July 2025",                         // Due date
+                        done = true                                         // Completion status
+                    )
+                )
+                addTask(
+                    Task(
+                        title = "Design 1 Website",
+                        subtitle = "Need to design for citter",
+                        date = "Tue, 23 July 2025",
+                        done = true
+                    )
+                )
+                addTask(
+                    Task(
+                        title = "Data-Base",
+                        subtitle = "Need to design for citter",
+                        date = "Sat, 14 July 2026",
+                        done = false
+                    )
+                )
+            }
+            // * Removed 'members' property from Task objects
         }
     }
 
@@ -36,28 +65,24 @@ class ApplicationViewModel(val taskRepository: TaskRepository): ViewModel() {
     fun removeAllTasks(){
         viewModelScope.launch{
             taskRepository.deleteAllTasks()
-            getTaskList()
         }
     }
 
     fun removeTask(task: Task){
         viewModelScope.launch{
             taskRepository.deleteTask(task)
-            getTaskList()
         }
     }
 
     fun modifyTask(task: Task){
         viewModelScope.launch{
             taskRepository.updateTask(task)
-            getTaskList()
         }
     }
 
     fun addTask(task: Task){
         viewModelScope.launch{
             taskRepository.insertTask(task)
-            getTaskList()
         }
     }
 }

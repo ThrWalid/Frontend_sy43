@@ -136,8 +136,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.content.Context
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
 import com.example.pro_test.data.local.OfflineTaskRepository
+import com.example.pro_test.data.local.Task
 import com.example.pro_test.data.local.TaskDatabase
 import com.example.pro_test.data.local.TaskRepository
 import com.example.pro_test.data.network.HomeApi
@@ -2483,20 +2485,10 @@ fun MemberBubble(initial: String, color: Color) {
     }
 }
 
-// Data class representing a task item with metadata
-data class TaskData(
-    val title: String,                       // Task title
-    val subtitle: String,                    // Task subtitle or short description
-    val date: String,                        // Scheduled date for the task
-    @DrawableRes val members: List<Int>,     // List of drawable resource IDs for assigned members
-    val done: Boolean                        // Status indicating if the task is completed
-)
 
 
 
 
-
-//------------------------------ TASK SCREEN -----------------------------
 //------------------------------ TASK SCREEN -----------------------------
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -2509,34 +2501,8 @@ fun TasksScreen(
     onNavigateToGroups: () -> Unit,
     onNavigateToSchedule: () -> Unit
 ) {
-    // --- Tasks state: a mutable list of TaskData ---
-    var tasks by remember {
-        mutableStateOf(
-            listOf(
-                TaskData(
-                    title = "Design 2 App Screens",                   // Task title
-                    subtitle = "Need to design for citter",         // Brief description
-                    date = "Mon, 10 July 2025",                      // Due date
-                    members = listOf(R.drawable.person4, R.drawable.person3, R.drawable.person7),
-                    done = true                                       // Completion status
-                ),
-                TaskData(
-                    title = "Design 1 Website",
-                    subtitle = "Need to design for citter",
-                    date = "Tue, 23 July 2025",
-                    members = listOf(R.drawable.person6, R.drawable.person1, R.drawable.person2),
-                    done = true
-                ),
-                TaskData(
-                    title = "Data-Base",
-                    subtitle = "Need to design for citter",
-                    date = "Sat, 14 July 2026",
-                    members = emptyList(),                            // No assigned members
-                    done = false
-                )
-            )
-        )
-    }
+    // --- Task state: a reference to the list of tasks from view model
+    val tasks by viewModel.taskList
 
     // --- States for search and dialog management ---
     var searchMode by remember { mutableStateOf(false) }      // Toggle search mode
@@ -2545,7 +2511,7 @@ fun TasksScreen(
     var newTaskTitle by remember { mutableStateOf("") }       // New task title input
     var newTaskSubtitle by remember { mutableStateOf("") }    // New task subtitle input
     var newTaskDate by remember { mutableStateOf("") }        // New task date input
-    var selectedTaskIndex by remember { mutableStateOf<Int?>(null) } // Index of selected task for editing
+    var selectedTask by remember { mutableStateOf<Task?>(null) } // Object of selected task for editing
     var editTitle by remember { mutableStateOf("") }          // Edited title state
     var editSubtitle by remember { mutableStateOf("") }       // Edited subtitle state
     var editDate by remember { mutableStateOf("") }           // Edited date state
@@ -2677,19 +2643,18 @@ fun TasksScreen(
                         task = task,
                         onToggle = {
                             // Toggle task completion status
-                            tasks = tasks.toMutableList().also {
-                                val idx = tasks.indexOf(task)
-                                if (idx != -1) it[idx] = it[idx].copy(done = !it[idx].done)
-                            }
+                            val updatedTask = task.copy(done = !task.done)
+                            viewModel.modifyTask(updatedTask)
                         },
                         modifier = Modifier.clickable {
                             // Select task for editing
-                            val realIndex = tasks.indexOf(task)
-                            if (realIndex != -1) {
-                                selectedTaskIndex = realIndex
-                                editTitle = tasks[realIndex].title
-                                editSubtitle = tasks[realIndex].subtitle
-                                editDate = tasks[realIndex].date
+                            // Retrieving corresponding task element  using a viewmodel coroutine scope
+                            viewModel.viewModelScope.launch{
+                                selectedTask = viewModel.getTask(task.id)
+
+                                editTitle = task.title
+                                editSubtitle = task.subtitle
+                                editDate = task.date
                             }
                         }
                     )
@@ -2732,13 +2697,15 @@ fun TasksScreen(
                         TextButton(onClick = {
                             if (newTaskTitle.isNotBlank()) {
                                 // Add new task to list
-                                tasks = tasks + TaskData(
+                                val newTask = Task(
                                     title = newTaskTitle,
                                     subtitle = newTaskSubtitle,
                                     date = newTaskDate,
-                                    members = emptyList(),
                                     done = false
                                 )
+
+                                viewModel.addTask(newTask)
+
                                 // Reset input fields
                                 newTaskTitle = ""
                                 newTaskSubtitle = ""
@@ -2759,9 +2726,9 @@ fun TasksScreen(
             }
 
             // --- Edit Task Dialog ---
-            if (selectedTaskIndex != null) {
+            if (selectedTask != null) {
                 AlertDialog(
-                    onDismissRequest = { selectedTaskIndex = null },
+                    onDismissRequest = { selectedTask = null },
                     title = { Text("Edit Task") },
                     text = {
                         Column {
@@ -2792,17 +2759,17 @@ fun TasksScreen(
                     },
                     confirmButton = {
                         TextButton(onClick = {
-                            val idx = selectedTaskIndex!!
                             if (editTitle.isNotBlank()) {
                                 // Save task edits
-                                tasks = tasks.toMutableList().also {
-                                    it[idx] = it[idx].copy(
-                                        title = editTitle,
-                                        subtitle = editSubtitle,
-                                        date = editDate
-                                    )
-                                }
-                                selectedTaskIndex = null
+                                val editedTask = selectedTask!!.copy(
+                                    title = editTitle,
+                                    subtitle = editSubtitle,
+                                    date = editDate
+                                )
+
+                                viewModel.modifyTask(editedTask)
+
+                                selectedTask = null
                             }
                         }) {
                             Text("Save")
@@ -2813,15 +2780,14 @@ fun TasksScreen(
                             TextButton(
                                 onClick = {
                                     // Delete selected task
-                                    val idx = selectedTaskIndex!!
-                                    tasks = tasks.toMutableList().also { it.removeAt(idx) }
-                                    selectedTaskIndex = null
+                                    viewModel.removeTask(selectedTask!!)
+                                    selectedTask = null
                                 }
                             ) {
                                 Text("Delete", color = Color.Red)
                             }
                             Spacer(Modifier.width(16.dp))
-                            TextButton(onClick = { selectedTaskIndex = null }) {
+                            TextButton(onClick = { selectedTask = null }) {
                                 Text("Cancel")
                             }
                         }
@@ -2837,7 +2803,7 @@ fun TasksScreen(
 // Composable to display a task card
 @Composable
 fun TaskCard(
-    task: TaskData,
+    task: Task,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2915,15 +2881,6 @@ fun TaskCard(
         }
     }
 }
-
-// Data class representing a task
-/**
- * @param title     Task title
- * @param subtitle  Brief description
- * @param date      Due date (free-form text)
- * @param members   List<Int> of avatar resource IDs for assigned members
- * @param done      Completion status flag
- */
 
 
 
