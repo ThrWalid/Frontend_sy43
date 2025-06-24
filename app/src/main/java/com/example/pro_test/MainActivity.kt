@@ -137,6 +137,9 @@ import kotlinx.coroutines.launch
 import android.content.Context
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
+import com.example.pro_test.data.local.OfflineTaskRepository
+import com.example.pro_test.data.local.TaskDatabase
+import com.example.pro_test.data.local.TaskRepository
 import com.example.pro_test.data.network.HomeApi
 import com.example.pro_test.data.network.HomeResponse
 
@@ -149,12 +152,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Creating repository for the task database
+        val taskRepository: TaskRepository by lazy {
+            OfflineTaskRepository(TaskDatabase.getDatabase(this).taskDao())
+        }
+
         // Set the UI content using Jetpack Compose
         setContent {
             // Apply the Material Design theme
             MaterialTheme {
                 // Call the main navigation function
-                AppNavigation()
+                AppNavigation(taskRepository)
             }
         }
     }
@@ -162,9 +170,12 @@ class MainActivity : ComponentActivity() {
 
 // Composable function that handles navigation between screens
 @Composable
-fun AppNavigation() {
+fun AppNavigation(taskRepository: TaskRepository) {
     // NavController used to manage app navigation
     val navController = rememberNavController()
+
+    // Initializing the general AppViewModel to provide data to screens in application
+    val viewModel = ApplicationViewModel(taskRepository)
 
     // NavHost defines the navigation graph with screen destinations
     NavHost(navController = navController, startDestination = "welcome") {
@@ -250,6 +261,7 @@ fun AppNavigation() {
         // Tasks screen route
         composable("tasks") {
             TasksScreen(
+                viewModel = viewModel,
                 onBack = { navController.popBackStack() },
                 onNavigateToHome = { navController.navigate("home") },
                 onNavigateToContacts = { navController.navigate("contacts") },
@@ -2490,6 +2502,7 @@ data class TaskData(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TasksScreen(
+    viewModel: ApplicationViewModel,
     onBack: () -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToContacts: () -> Unit,
