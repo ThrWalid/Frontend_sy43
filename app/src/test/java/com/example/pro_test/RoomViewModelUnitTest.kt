@@ -1,8 +1,17 @@
 package com.example.pro_test
 
+import org.junit.Assert.assertEquals
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import com.example.pro_test.data.local.Task
 import com.example.pro_test.data.local.TaskRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -13,7 +22,7 @@ class RoomViewModelUnitTest {
 
     @Before
     fun setup(){
-        Dispatchers.setMain(StandardTestDispatecher())
+        Dispatchers.setMain(StandardTestDispatcher())
 
         fakeRepository = FakeTaskRepository()
         viewModel = ApplicationViewModel(fakeRepository)
@@ -52,10 +61,10 @@ class RoomViewModelUnitTest {
         viewModel.modifyTask(modifiedTask)
         advanceUntilIdle()
 
-        val retrievedTask = viewModel.getTask(1)
+        val retrievedTask = viewModel.getTask(id = 1)
         advanceUntilIdle()
 
-        assertEquality(modifiedTask, retrievedTask)
+        assertEquals(modifiedTask, retrievedTask)
     }
 
     @Test
@@ -74,7 +83,7 @@ class RoomViewModelUnitTest {
         viewModel.removeTask(newTask)
         advanceUntilIdle()
 
-        assertEquals(emptyList(), viewModel.taskList.value)
+        assertEquals(emptyList<Task>(), viewModel.taskList.value)
     }
 
     @Test
@@ -103,7 +112,7 @@ class RoomViewModelUnitTest {
 
         val taskReference = viewModel.taskList
 
-        assertEquality(emptyList(), taskReference)
+        assertEquals(emptyList<Task>(), taskReference)
     }
 
     @Test
@@ -122,7 +131,7 @@ class RoomViewModelUnitTest {
         val retrievedTask = viewModel.getTask(newTask.id)
         advanceUntilIdle()
 
-        assertEquality(newTask, retrievedTask)
+        assertEquals(newTask, retrievedTask)
     }
 
     @Test
@@ -142,7 +151,7 @@ class RoomViewModelUnitTest {
             done = false
         )
 
-        taskList = listOf(newTask1, newTask2)
+        val taskList = listOf(newTask1, newTask2)
 
         viewModel.addTask(newTask1)
         viewModel.addTask(newTask2)
@@ -151,9 +160,7 @@ class RoomViewModelUnitTest {
         viewModel.getTaskList()
         advanceUntilIdle()
 
-        val taskReference = viewModel.taskList
-
-        assertEquality(taskList, taskReference)
+        assertEquals(taskList, viewModel.taskList.value)
     }
 
     @After
@@ -171,7 +178,7 @@ class FakeTaskRepository(): TaskRepository {
     tasks.map { list -> list.first {it.id == id }}
 
     override fun deleteAllTasks(){
-        task.value = emptyList()
+        tasks.value = emptyList()
     }
 
     override suspend fun insertTask(task: Task){
@@ -179,7 +186,7 @@ class FakeTaskRepository(): TaskRepository {
     }
 
     override suspend fun deleteTask(task: Task) {
-        task.value = task.value - task
+        tasks.value = tasks.value - task
     }
     override suspend fun updateTask(task: Task) {
         tasks.value = tasks.value.map { if (it.id == task.id) task else it }
