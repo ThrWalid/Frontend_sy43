@@ -135,6 +135,17 @@ import java.util.Locale
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOut
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavHostController
@@ -1031,14 +1042,48 @@ fun HomeScreen(
         }
     }
 
-    if (showPersonalDialog) {
+    // Opening Personal Dialog window using animation
+    AnimatedVisibility(
+        visible = showPersonalDialog,
+        enter = slideInHorizontally (
+            initialOffsetX = { fullWidth ->  -fullWidth },
+            animationSpec = tween(
+                durationMillis = 150,
+                easing = LinearOutSlowInEasing
+            )
+        ),
+        exit = slideOutHorizontally(
+            targetOffsetX = { fullWidth -> -fullWidth },
+            animationSpec = tween(
+                durationMillis = 250,
+                easing = FastOutLinearInEasing
+            )
+        )
+        ) {
         PersonalTaskDialog(
             onDismiss = { showPersonalDialog = false },
             onSave = { showPersonalDialog = false }
         )
     }
 
-    if (showSharedDialog) {
+    // Opening Shared Dialog window using animation
+    AnimatedVisibility(
+        visible = showSharedDialog,
+        enter = slideInHorizontally (
+            initialOffsetX = { fullWidth -> fullWidth },
+            animationSpec = tween(
+                durationMillis = 150,
+                easing = LinearOutSlowInEasing
+            )
+        ),
+        exit = slideOutHorizontally(
+            targetOffsetX = { fullWidth -> fullWidth },
+            animationSpec = tween(
+                durationMillis = 250,
+                easing = FastOutLinearInEasing
+            )
+        )
+    ) {
         SharedTaskDialog(
             onDismiss = { showSharedDialog = false },
             onSave = { showSharedDialog = false }
@@ -2269,7 +2314,23 @@ fun GroupsScreen(
         }
 
         // ─── Dialog to create a new group ───
-        if (showDialog) {
+        AnimatedVisibility(
+            visible = showDialog,
+            enter = slideInVertically(
+                initialOffsetY = { fullHeight -> -fullHeight },
+                animationSpec = tween(
+                    durationMillis = 150,
+                    easing = LinearOutSlowInEasing
+                )
+            ),
+            exit = slideOutVertically(
+                targetOffsetY = { fullHeight -> -fullHeight },
+                animationSpec = tween(
+                    durationMillis = 250,
+                    easing = FastOutLinearInEasing
+                )
+            )
+        ) {
             AlertDialog(
                 onDismissRequest = { showDialog = false },
                 title = { Text("Create New Group") },
@@ -2662,7 +2723,23 @@ fun TasksScreen(
             }
 
             // --- Add Task Dialog ---
-            if (showDialog) {
+            AnimatedVisibility(
+                visible = showDialog,
+                enter = slideInHorizontally(
+                    initialOffsetX = { fullWidth -> -fullWidth },
+                    animationSpec = tween(
+                        durationMillis = 150,
+                        easing = LinearOutSlowInEasing
+                    )
+                ),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { fullWidth -> -fullWidth },
+                    animationSpec = tween(
+                        durationMillis = 250,
+                        easing = FastOutLinearInEasing
+                    )
+                )
+            ) {
                 AlertDialog(
                     onDismissRequest = { showDialog = false },
                     title = { Text("Add a New Task") },
@@ -2726,7 +2803,23 @@ fun TasksScreen(
             }
 
             // --- Edit Task Dialog ---
-            if (selectedTask != null) {
+            AnimatedVisibility(
+                visible = showDialog,
+                enter = slideInHorizontally(
+                    initialOffsetX = { fullWidth -> fullWidth },
+                    animationSpec = tween(
+                        durationMillis = 150,
+                        easing = LinearOutSlowInEasing
+                    )
+                ),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { fullWidth -> fullWidth },
+                    animationSpec = tween(
+                        durationMillis = 250,
+                        easing = FastOutLinearInEasing
+                    )
+                )
+            ) {
                 AlertDialog(
                     onDismissRequest = { selectedTask = null },
                     title = { Text("Edit Task") },
@@ -3115,8 +3208,25 @@ fun ScheduleScreen(
             }
         }
 
+
         // ---------- Dialog for adding a new event ----------
-        if (showDialog) {
+        AnimatedVisibility(
+            visible = showDialog,
+            enter = slideInHorizontally(
+                initialOffsetX = { fullWidth -> -fullWidth },
+                animationSpec = tween(
+                    durationMillis = 150,
+                    easing = LinearOutSlowInEasing
+                )
+            ),
+            exit = slideOutHorizontally(
+                targetOffsetX = { fullWidth -> -fullWidth },
+                animationSpec = tween(
+                    durationMillis = 250,
+                    easing = FastOutLinearInEasing
+                )
+            )
+        ) {
             AlertDialog(
                 onDismissRequest = { showDialog = false },
                 title = { Text("New Schedule") },
@@ -3223,7 +3333,23 @@ fun ScheduleScreen(
         }
 
         // ---------- Dialog for editing or deleting an existing event ----------
-        if (editingEvent != null && editingDay != null) {
+        AnimatedVisibility(
+            visible = (editingEvent != null && editingDay != null),
+            enter = slideInHorizontally(
+                initialOffsetX = { fullWidth -> fullWidth },
+                animationSpec = tween(
+                    durationMillis = 150,
+                    easing = LinearOutSlowInEasing
+                )
+            ),
+            exit = slideOutHorizontally(
+                targetOffsetX = { fullWidth -> fullWidth },
+                animationSpec = tween(
+                    durationMillis = 250,
+                    easing = FastOutLinearInEasing
+                )
+            )
+        ) {
             AlertDialog(
                 onDismissRequest = {
                     editingEvent = null
